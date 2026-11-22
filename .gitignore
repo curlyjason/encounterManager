@@ -1,0 +1,11 @@
+*.sqlite
+*.sqlite-*
+lib/config.php
+lib/config.backup.php
+lib/config.php.tmp
+data/update-check.json
+data/backups/
+data/updates/
+dist/
+.DS_Store
+.idea/
