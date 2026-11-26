@@ -4,6 +4,25 @@ Each release lists what changed. Newest first.
 
 <!-- new releases go below this line -->
 
+## 2.3.0 — 2026-11-25
+
+### New: spell details on hover
+
+Spells in stat blocks are underlined. Hover over one (or tap it) to see the whole spell: level, casting time, range, components, duration and description. Each monster gets the spell from its own book, so a 2024 monster shows the 2024 version. Needs the 5e Artisanal Database.
+
+### New: stat block on each turn
+
+With **Stat block each turn** ticked (next to the turn buttons), Next and Prev show the stat block of whoever's turn it is.
+
+### New: player character blocks
+
+PCs now have a stat block too: level, player, AC, current HP, initiative, conditions and notes, with buttons to open their **character sheet** and their **Notion page**. Sheet links come from your Notion **Link** column when you use **Add party** or **Refresh PCs**, or you can paste one into the block.
+
+### Changed
+
+- Hide the encounter list with **«** (or the **[** key) to give the encounter more room; **»** brings it back.
+- **⚙ Setup** stays at the bottom of the sidebar while the page scrolls.
+
 ## 2.2.0 — 2026-11-25
 
 ### New: generate monster art with AI
