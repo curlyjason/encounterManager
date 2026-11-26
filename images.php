@@ -12,6 +12,10 @@ $v = fn(string $f) => filemtime(__DIR__ . '/assets/' . $f);
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Monster images · Encounter Manager</title>
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="assets/favicon-32.png" type="image/png" sizes="32x32">
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+    <meta name="theme-color" content="#7c3aed">
     <link rel="stylesheet" href="assets/app.css?v=<?= $v('app.css') ?>">
     <link rel="stylesheet" href="assets/setup.css?v=<?= $v('setup.css') ?>">
 </head>
