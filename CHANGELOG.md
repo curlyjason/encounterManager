@@ -4,6 +4,24 @@ Each release lists what changed. Newest first.
 
 <!-- new releases go below this line -->
 
+## 2.1.0 — 2026-11-25
+
+### New: stat blocks
+
+- Click the **book icon** next to any monster (or a waiting group) to see its stat block. In monster search, **stat block** lets you look before you add.
+- Show them in a **side bar**, an **expanded row**, a **pop-up** or a **new tab**: switch with the buttons at the top of any stat block. Your choice is remembered.
+- Full stat blocks come from the 5e Artisanal Database. Notion-only monsters show their numbers and a link to their Notion page.
+- Monsters already in your encounters are matched to their stat block the first time you open them.
+
+### New: monster images, shared by everyone
+
+- Click **+ Add art** on a stat block, then drop an image, paste one, or paste its web address. **Find art ↗** searches for one.
+- Every image is shrunk to 512 px and saved as WebP, so each is tiny.
+- Say where each image is from. **Personal use only** images stay on your computer; others can be shared.
+- Share yours from the new **Monster images** page (in the sidebar): **Download my new images** makes a small zip to send in. Once added to the collection, everyone sees them automatically, without an update.
+- You can also add a whole folder of art or tokens at once; files are matched to monsters by name.
+- Monsters without art show an icon for their creature type.
+
 ## 2.0.0 — 2026-11-25
 
 ### New: monsters from the 5e Artisanal Database
