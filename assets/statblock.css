@@ -145,3 +145,12 @@ tr.sb-row .sb-body > * { break-inside: avoid; }
 
 .side-foot .images-link { font-size: 13px; color: var(--accent); text-decoration: none; text-align: center; }
 .side-foot .images-link:hover { text-decoration: underline; }
+
+/* ---- generate with AI ---------------------------------------------------------------- */
+.sb-gen { display: grid; gap: 6px; }
+.sb-gen textarea { width: 100%; resize: vertical; font: inherit; color: var(--ink); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+.sb-gen-row { display: flex; gap: 8px; }
+.sb-gen-row select { flex: 1; min-width: 0; }
+.sb-gen-status { margin: 0; }
+.sb-or { text-align: center; margin: 2px 0; }

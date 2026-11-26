@@ -118,6 +118,37 @@ $v = fn(string $f) => filemtime(__DIR__ . '/assets/' . $f);
         <p id="adb-off" class="small" hidden><button id="btn-adb-remove" class="linkish">Stop using it</button>
             <span class="muted">(monster search goes back to Notion)</span></p>
     </section>
+
+    <!-- Optional: generate art -->
+    <section class="step locked" id="step-gen">
+        <h2><span class="num">+</span> Generate monster art with AI <span class="muted small">optional</span></h2>
+        <p>Adds a <strong>Generate</strong> button to <strong>+ Add art</strong> on stat blocks. It uses OpenAI's image
+            service with your own OpenAI account, so <strong>each picture costs you a few cents</strong>. You only pay for
+            pictures you generate.</p>
+        <ol class="howto">
+            <li>Sign in at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a>
+                (create an account if you need one), and add some credit under <strong>Billing</strong> (US$5 lasts a long time).</li>
+            <li>Click <strong>Create new secret key</strong>, name it <strong>Encounter Manager</strong>, then copy it and paste it here:</li>
+        </ol>
+        <div class="row-form">
+            <input id="gen-key" type="password" placeholder="sk-…" autocomplete="off" spellcheck="false" aria-label="OpenAI API key">
+            <button id="btn-gen-connect">Connect</button>
+        </div>
+        <p id="gen-saved" class="muted small" hidden>A key is already saved. Leave the box empty to keep it.</p>
+        <div id="gen-opts" class="col-grid" hidden style="margin:8px 0">
+            <label for="gen-model">Image model</label>
+            <select id="gen-model"></select>
+            <div class="note">Newest first. Newer models usually draw better.</div>
+            <label for="gen-quality">Quality</label>
+            <select id="gen-quality"></select>
+            <div class="note">Rough prices; see <a id="gen-pricing" target="_blank" rel="noopener">OpenAI's pricing</a>. You can change quality for each picture too.</div>
+        </div>
+        <p id="gen-result" class="result" hidden></p>
+        <p><button id="btn-gen-save" class="primary" hidden>Save</button>
+            <button id="btn-gen-remove" class="linkish" hidden>Stop using AI art (forget the key)</button></p>
+        <p class="muted small">The key is stored only on this computer, in <code>lib/config.php</code>. Generated pictures are
+            marked “AI-generated”, and you can share them like any other art.</p>
+    </section>
     <?php endif; ?>
 </main>
 <?php if ($allowed): ?>

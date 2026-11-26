@@ -298,6 +298,58 @@
         renderAdb();
     });
 
+    // ---- optional: generate art with OpenAI ---------------------------------
+    function renderGen() {
+        const g = st.status.gen;
+        $('#gen-saved').hidden = !g.configured;
+        $('#btn-gen-remove').hidden = !g.configured;
+        $('#gen-pricing').href = g.pricing;
+        $('#gen-quality').innerHTML = Object.entries(g.qualities).map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join('');
+        $('#gen-quality').value = g.quality || 'medium';
+        done('#step-gen', g.configured);
+    }
+
+    async function genConnect() {
+        const btn = $('#btn-gen-connect');
+        btn.disabled = true;
+        btn.textContent = 'Connecting…';
+        try {
+            const { models } = await api('gen_models', { key: $('#gen-key').value.trim() });
+            const saved = st.status.gen.model;
+            $('#gen-model').innerHTML = models.map((m) => `<option>${esc(m)}</option>`).join('');
+            $('#gen-model').value = models.includes(saved) ? saved : models[0];
+            $('#gen-opts').hidden = false;
+            $('#btn-gen-save').hidden = false;
+            show($('#gen-result'), `✓ Connected. ${models.length} image model${models.length === 1 ? '' : 's'} available.`, true);
+        } catch (e) {
+            show($('#gen-result'), esc(e.message), false);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Connect';
+        }
+    }
+
+    $('#btn-gen-connect').addEventListener('click', genConnect);
+    $('#gen-key').addEventListener('keydown', (e) => e.key === 'Enter' && genConnect());
+    $('#btn-gen-save').addEventListener('click', async () => {
+        try {
+            await api('gen_save', { key: $('#gen-key').value.trim(), model: $('#gen-model').value, quality: $('#gen-quality').value });
+            $('#gen-key').value = '';
+            st.status = await api('status');
+            renderGen();
+            show($('#gen-result'), `✓ Saved. Open any stat block, click <strong>+ Add art</strong>, then <strong>Generate</strong>.`, true);
+        } catch (e) { show($('#gen-result'), esc(e.message), false); }
+    });
+    $('#btn-gen-remove').addEventListener('click', async () => {
+        if (!confirm('Forget the OpenAI key and remove the Generate button?')) return;
+        await api('gen_remove');
+        st.status = await api('status');
+        $('#gen-opts').hidden = true;
+        $('#btn-gen-save').hidden = true;
+        renderGen();
+        show($('#gen-result'), 'Key removed.', true);
+    });
+
     // ---- events ------------------------------------------------------------
     $('#btn-test').addEventListener('click', connect);
     $('#token').addEventListener('keydown', (e) => e.key === 'Enter' && connect());
@@ -353,6 +405,9 @@
         const ok = renderRequirements();
         unlock('#step-token', ok);
         unlock('#step-adb', ok);
+        unlock('#step-gen', ok);
+        renderGen();
+        if (ok && st.status.gen.configured) genConnect(); // show the saved model and quality
         if (st.status.adb) $('#adb-path').value = st.status.adb.path;
         renderAdb();
         if (ok && st.status.has_token) connect(); // already set up: show what's saved

@@ -19,9 +19,9 @@ rsync -a \
     ./ "$STAGE/$NAME/"
 
 # Safety net: never ship a key or a database.
-if grep -rlE 'ntn_[A-Za-z0-9]{20,}|secret_[A-Za-z0-9]{20,}' "$STAGE/$NAME" >/dev/null 2>&1; then
-    echo "Refusing to package: something that looks like a Notion key is in:" >&2
-    grep -rlE 'ntn_[A-Za-z0-9]{20,}|secret_[A-Za-z0-9]{20,}' "$STAGE/$NAME" >&2
+if grep -rlE 'ntn_[A-Za-z0-9]{20,}|secret_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9_-]{20,}' "$STAGE/$NAME" >/dev/null 2>&1; then
+    echo "Refusing to package: something that looks like a Notion or OpenAI key is in:" >&2
+    grep -rlE 'ntn_[A-Za-z0-9]{20,}|secret_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9_-]{20,}' "$STAGE/$NAME" >&2
     exit 1
 fi
 if find "$STAGE/$NAME" -name '*.sqlite*' | grep -q .; then

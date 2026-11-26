@@ -9,6 +9,7 @@ declare(strict_types=1);
  */
 require __DIR__ . '/lib/setup.php';   // setup_allowed()
 require __DIR__ . '/lib/statblock.php';
+require __DIR__ . '/lib/imagegen.php';
 
 function img_out(array $data, int $code = 200): never
 {
@@ -59,7 +60,7 @@ try {
     $in = json_decode(file_get_contents('php://input') ?: '{}', true) ?: [];
     switch ($in['action'] ?? '') {
         case 'summary':
-            img_out(images_summary() + ['known' => count(known_monsters())]);
+            img_out(images_summary() + ['known' => count(known_monsters()), 'gen' => gen_public()]);
 
         case 'list':
             // Everything with its credit, for the credits list on the Monster images page.
@@ -95,6 +96,10 @@ try {
                 img_out(['error' => 'Drop, paste or link an image first'], 400);
             }
             img_out(['image' => image_save($key, $bytes, $in)]);
+
+        case 'generate':
+            // Returns a preview only; saving is a separate 'save' once the person likes it.
+            img_out(gen_image((string) ($in['prompt'] ?? ''), $in['quality'] ?? null));
 
         case 'delete':
             image_delete((string) ($in['key'] ?? ''));

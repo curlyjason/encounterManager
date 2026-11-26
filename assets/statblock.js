@@ -96,6 +96,7 @@
         if (!licenses) {
             const s = await post('images_api.php', { action: 'summary' });
             licenses = s.licenses;
+            window.SB_GEN = s.gen;
             window.SB_DEV = s.dev;
             window.SB_CAN_EDIT = s.can_edit;
         }
@@ -121,12 +122,34 @@
         });
     }
 
+    /** A starting description for AI art, from the stat block's name and "Medium Undead, Neutral Evil" line. */
+    function defaultPrompt(d) {
+        const first = (d.markdown || '').split('\n').map((l) => l.trim()).find((l) => /^[*_]/.test(l)) || '';
+        const what = first.replace(/[*_]/g, '').replace(/\s+/g, ' ').trim() || d.type || 'creature';
+        return `A fantasy tabletop roleplaying game monster: ${d.name}, ${what}. `
+            + 'Show the whole creature, in a dramatic painterly fantasy illustration with a simple dark background. '
+            + 'No text, no lettering, no border, no frame.';
+    }
+
     async function artForm(root, d, onSaved) {
         const lic = await getLicenses();
         const box = root.querySelector('.sb-artform');
         const saved = (() => { try { return JSON.parse(localStorage.getItem('em.artMeta') || '{}'); } catch (_) { return {}; } })();
         box.hidden = false;
+        const gen = window.SB_GEN || {};
         box.innerHTML = `
+            ${gen.configured ? `
+            <div class="sb-gen">
+                <label class="sb-field"><span>Generate with AI <span class="muted">(describe what to draw)</span></span>
+                    <textarea name="prompt" rows="3" maxlength="2000">${esc(defaultPrompt(d))}</textarea></label>
+                <div class="sb-gen-row">
+                    <select name="quality" aria-label="Quality">${Object.entries(gen.qualities).map(([k, l]) =>
+                        `<option value="${k}" ${k === gen.quality ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
+                    <button type="button" class="primary" data-act="gen">Generate</button>
+                </div>
+                <p class="sb-gen-status small muted" hidden></p>
+            </div>
+            <div class="sb-or muted small">or use a picture you have</div>` : ''}
             <div class="sb-drop" tabindex="0">
                 <div class="sb-drop-preview" hidden><img alt=""></div>
                 <div class="sb-drop-text"><strong>Drop an image here</strong>, paste one (⌘V / Ctrl+V), or
@@ -204,7 +227,41 @@
         });
         drop.focus();
 
-        box.querySelector('[data-act="art-cancel"]').onclick = () => { box.hidden = true; box.innerHTML = ''; };
+        // ---- Generate with AI: shows a preview; Save keeps it, Generate again replaces it.
+        let genTimer = null;
+        box.querySelector('[data-act="gen"]')?.addEventListener('click', async (e) => {
+            const btn = e.target;
+            const status = box.querySelector('.sb-gen-status');
+            const started = Date.now();
+            btn.disabled = true;
+            btn.textContent = 'Generating…';
+            status.hidden = false;
+            showErr('');
+            const tick = () => { status.textContent = `Drawing… ${Math.round((Date.now() - started) / 1000)}s (usually 15–60 seconds)`; };
+            tick();
+            genTimer = setInterval(tick, 1000);
+            try {
+                const r = await post('images_api.php', { action: 'generate', prompt: f('prompt').value, quality: f('quality').value });
+                dataUrl = r.data;
+                f('url').value = '';
+                preview(dataUrl);
+                f('license').value = 'ai';
+                f('credit').value = `AI-generated with OpenAI ${r.model}`;
+                f('source').value = '';
+                note();
+                status.textContent = 'Like it? Click Save. Not quite? Change the description and generate again.';
+                btn.textContent = 'Generate again';
+            } catch (err) {
+                status.hidden = true;
+                showErr(err.message);
+                btn.textContent = 'Generate';
+            } finally {
+                clearInterval(genTimer);
+                btn.disabled = false;
+            }
+        });
+
+        box.querySelector('[data-act="art-cancel"]').onclick = () => { clearInterval(genTimer); box.hidden = true; box.innerHTML = ''; };
         box.querySelector('[data-act="art-save"]').onclick = async (e) => {
             const btn = e.target;
             const url = f('url').value.trim();

@@ -6,6 +6,7 @@ declare(strict_types=1);
  */
 require __DIR__ . '/lib/setup.php';
 require __DIR__ . '/lib/adb.php';
+require __DIR__ . '/lib/imagegen.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -120,7 +121,45 @@ try {
                 'campaigns'    => $camps,
                 'monsters'     => $m ? ['data_source' => $m['data_source'] ?? null, 'columns' => $m['columns'] ?? null] : null,
                 'adb'          => adb_config() ? ['path' => adb_config()['path']] : null,
+                'gen'          => gen_public(),
             ]);
+
+        // ---- Generating art with OpenAI (optional). The key is never sent back. ----
+        case 'gen_models':
+            $key = trim((string) ($in['key'] ?? '')) ?: (string) (gen_config()['api_key'] ?? '');
+            if ($key === '') {
+                bad('Paste your OpenAI API key first');
+            }
+            try {
+                $models = gen_models($key);
+            } catch (ImageError $e) {
+                bad($e->getMessage());
+            }
+            if (!$models) {
+                bad('That key works, but it has no image models. Check your OpenAI project’s model access.');
+            }
+            out(['models' => $models]);
+
+        case 'gen_save':
+            $cfg = app_config();
+            $key = trim((string) ($in['key'] ?? '')) ?: (string) ($cfg['image_gen']['api_key'] ?? '');
+            $model = trim((string) ($in['model'] ?? ''));
+            $quality = (string) ($in['quality'] ?? 'medium');
+            if ($key === '' || $model === '') {
+                bad('Connect with your API key and pick a model first');
+            }
+            if (!preg_match('~^[\w.:-]{3,80}$~', $model) || !isset(GEN_QUALITIES[$quality])) {
+                bad('Pick a model and quality from the lists');
+            }
+            $cfg['image_gen'] = ['provider' => 'openai', 'api_key' => $key, 'model' => $model, 'quality' => $quality];
+            save_config($cfg + ['notion_token' => '', 'campaigns' => []]);
+            out(['ok' => true, 'gen' => gen_public()]);
+
+        case 'gen_remove':
+            $cfg = app_config();
+            unset($cfg['image_gen']);
+            save_config($cfg + ['notion_token' => '', 'campaigns' => []]);
+            out(['ok' => true, 'gen' => gen_public()]);
 
         // ---- 5e Artisanal Database (monster search from a local folder; separate from the Notion steps) ----
         case 'find_adb':
@@ -188,8 +227,10 @@ try {
             if (!empty($old['allow_remote_setup'])) {
                 $cfg['allow_remote_setup'] = true;
             }
-            if (!empty($old['adb'])) {
-                $cfg['adb'] = $old['adb']; // local 5e Artisanal Database for monster search (not part of the wizard)
+            foreach (['adb', 'image_gen'] as $keep) { // set in their own Setup sections
+                if (!empty($old[$keep])) {
+                    $cfg[$keep] = $old[$keep];
+                }
             }
             $created = [];
 

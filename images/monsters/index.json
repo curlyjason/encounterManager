@@ -1,4 +1,19 @@
 {
     "about": "Encounter Manager monster images. Each entry: monster name, credit, license, source.",
-    "images": {}
+    "images": {
+        "hobgoblin": {
+            "name": "Hobgoblin",
+            "credit": "AI-generated with OpenAI gpt-image-2.6-flare",
+            "license": "ai",
+            "source": "",
+            "added": "2026-11-25"
+        },
+        "mage": {
+            "name": "Mage",
+            "credit": "AI-generated with OpenAI gpt-image-2.6-flare",
+            "license": "ai",
+            "source": "",
+            "added": "2026-11-25"
+        }
+    }
 }
