@@ -4,6 +4,12 @@ Each release lists what changed. Newest first.
 
 <!-- new releases go below this line -->
 
+## 2.3.1 — 2026-11-25
+
+### New
+
+- Encounter Manager has its own icon in browser tabs and bookmarks: the turn order, in the app's purple. It's also used if you add the app to a phone or tablet home screen.
+
 ## 2.3.0 — 2026-11-25
 
 ### New: spell details on hover
