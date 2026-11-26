@@ -11,7 +11,7 @@ const UPDATE_CACHE = APP_ROOT . '/data/update-check.json';
 const UPDATE_CACHE_SECONDS = 6 * 3600;
 const UPDATE_MAX_BYTES = 25 * 1024 * 1024;
 /** Paths an update must never write to (relative to the app folder). */
-const UPDATE_PROTECTED = '~^(data/|lib/config(\.backup)?\.php|\.git/|dist/)~';
+const UPDATE_PROTECTED = '~^(data/|images/|lib/config(\.backup)?\.php|\.git/|dist/)~';
 
 final class UpdateError extends RuntimeException {}
 

@@ -315,6 +315,8 @@ function search_monsters(string $q, ?float $crMin = null, ?float $crMax = null, 
             'type'      => np_text($p, col($src, $f, 'type')),
             'source'    => np_text($p, col($src, $f, 'source')),
             'legendary' => !in_array(strtolower(np_text($p, col($src, $f, 'legendary'))), ['', 'no', 'false', '-'], true),
+            'ref'       => isset($p['id']) ? 'notion:' . strtolower($p['id']) : null,
+            'link'      => $p['url'] ?? null,
         ];
     }
     if (!$crServer) {

@@ -5,6 +5,10 @@ lib/config.backup.php
 lib/config.php.tmp
 data/update-check.json
 data/adb-monsters.json
+data/my-images/
+data/image-cache/
+data/image-manifest.json
+data/encounter-manager-images-*.zip
 data/backups/
 data/updates/
 dist/

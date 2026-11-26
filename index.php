@@ -13,6 +13,7 @@ require __DIR__ . '/lib/version.php';
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Encounter Manager</title>
     <link rel="stylesheet" href="assets/app.css?v=<?= filemtime(__DIR__ . '/assets/app.css') ?>">
+    <link rel="stylesheet" href="assets/statblock.css?v=<?= filemtime(__DIR__ . '/assets/statblock.css') ?>">
 </head>
 <body>
 <div class="layout">
@@ -25,6 +26,7 @@ require __DIR__ . '/lib/version.php';
         <ul id="encounter-list" class="enc-list"></ul>
         <div class="side-foot">
             <a href="setup.php" class="setup-link" title="Notion connection, campaigns and columns"><span aria-hidden="true">⚙</span> Setup</a>
+            <a href="images.php" class="images-link" title="Add, share and import monster art">Monster images</a>
             <a href="whatsnew.php" class="version-link" title="Release notes and updates">v<?= htmlspecialchars(app_version()) ?> · What's new</a>
         </div>
     </aside>
@@ -112,6 +114,7 @@ require __DIR__ . '/lib/version.php';
                 <label class="for-pc" hidden>Level <input name="level" type="number" min="1" max="20"></label>
                 <label>× <input name="count" type="number" min="1" max="30" value="1"></label>
                 <input name="notes" type="hidden">
+                <input name="ref" type="hidden">
                 <label class="waiting-opt" title="Add them to the waiting list instead of straight into initiative">
                     <input name="waiting" type="checkbox"> Waiting
                 </label>
@@ -151,9 +154,13 @@ require __DIR__ . '/lib/version.php';
             </section>
         </section>
     </main>
+
+    <aside id="sb-side" class="sb-side" hidden aria-label="Stat block"></aside>
 </div>
 
 <div id="toast" class="toast" hidden></div>
+<script src="assets/vendor/showdown.min.js"></script>
+<script src="assets/statblock.js?v=<?= filemtime(__DIR__ . '/assets/statblock.js') ?>"></script>
 <script src="assets/app.js?v=<?= filemtime(__DIR__ . '/assets/app.js') ?>"></script>
 </body>
 </html>

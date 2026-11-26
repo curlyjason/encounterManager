@@ -107,7 +107,7 @@ function adb_monsters(): array
         throw new AdbError("No 5e Artisanal Database at $root (css_js/monster_combat_stats.js is missing)");
     }
 
-    $stamp = ($cfg['url'] ?? '') . '|' . implode('|', array_map(fn($f) => is_file($f) ? $f . '@' . filemtime($f) . ':' . filesize($f) : "$f@-", [$stats, $custom, "$root/monsters/monsters.json"]));
+    $stamp = 'v2|' . ($cfg['url'] ?? '') . '|' . implode('|', array_map(fn($f) => is_file($f) ? $f . '@' . filemtime($f) . ':' . filesize($f) : "$f@-", [$stats, $custom, "$root/monsters/monsters.json"]));
     static $mem = null;
     if ($mem && $mem['stamp'] === $stamp) {
         return $mem['monsters'];
@@ -143,6 +143,7 @@ function adb_monsters(): array
                 continue;
             }
             $rawLink = $link = (string) ($r['htmlLink'] ?? '');
+            $rel = preg_replace('~^\./~', '', $rawLink);
             if ($link !== '') {
                 $link = $base . '/monsters/' . preg_replace('~^\./~', '', $link);
             }
@@ -156,6 +157,7 @@ function adb_monsters(): array
                 'type'      => (string) ($r['type'] ?? ''),
                 'source'    => $source . ($isCustom ? ' (custom)' : ''),
                 'link'      => $link,
+                'ref'       => $rel !== '' ? 'adb:' . $rel : null,
                 'legendary' => $isLegendary($rawLink),
             ];
         }
@@ -207,6 +209,7 @@ function adb_search_monsters(string $q, ?float $crMin = null, ?float $crMax = nu
             'source'    => $m['source'],
             'legendary' => $m['legendary'],
             'link'      => $m['link'],
+            'ref'       => $m['ref'] ?? null,
         ];
     }
     return ['monsters' => $out, 'more' => count($hits) > $limit];

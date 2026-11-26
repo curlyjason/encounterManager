@@ -4,6 +4,7 @@ declare(strict_types=1);
 require __DIR__ . '/lib/db.php';
 require __DIR__ . '/lib/notion.php';
 require __DIR__ . '/lib/adb.php';
+require __DIR__ . '/lib/statblock.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -123,6 +124,16 @@ function ordered_combatants(int $encounterId, bool $inCombatOnly = false): array
         $r['conditions'] = json_decode($r['conditions'], true) ?: [];
     }
     return $rows;
+}
+
+/** A monster reference from the browser: "adb:<path in the 5eADB monsters folder>" or "notion:<page id>". */
+function clean_ref(mixed $ref): ?string
+{
+    $ref = trim((string) $ref);
+    if (preg_match('~^adb:(html/[^\s?#]+\.html|custom/index\.html\?file=[\w.-]+\.js)$~', $ref) && !str_contains($ref, '..')) {
+        return $ref;
+    }
+    return preg_match('~^notion:[0-9a-f-]{32,36}$~i', $ref) ? strtolower($ref) : null;
 }
 
 function encounter_payload(int $id): array
@@ -380,6 +391,23 @@ try {
             echo json_encode(adb_configured() ? adb_search_monsters($q, $crMin, $crMax) : search_monsters($q, $crMin, $crMax));
             break;
 
+        case 'statblock':
+            // For a combatant (by id) or a search result (by ref).
+            $c = null;
+            if (!empty($in['id'])) {
+                $st = $pdo->prepare('SELECT * FROM combatants WHERE id = ?');
+                $st->execute([(int) $in['id']]);
+                $c = $st->fetch() ?: fail('That combatant is gone', 404);
+                if (!$c['ref'] && ($guess = guess_ref($c))) {
+                    // Added before stat blocks existed: remember the match for next time.
+                    $pdo->prepare('UPDATE combatants SET ref = ? WHERE id = ?')->execute([$guess, $c['id']]);
+                    $c['ref'] = $guess;
+                }
+                $c['cr'] = $c['cr'] === null ? null : (float) $c['cr'];
+            }
+            echo json_encode(statblock_data($c, clean_ref($in['ref'] ?? null)), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            break;
+
         case 'list_encounters':
             $rows = $pdo->query(
                 'SELECT e.id, e.name, e.round, e.created_at,
@@ -424,8 +452,8 @@ try {
                 ->execute([$src['name'] . ' (copy)', $src['campaign']]);
             $newId = (int) $pdo->lastInsertId();
             $pdo->prepare(
-                'INSERT INTO combatants (encounter_id, name, kind, init_mod, ac, hp_max, hp, notes, in_combat, level, cr)
-                 SELECT ?, name, kind, init_mod, ac, hp_max, hp_max, notes, in_combat, level, cr FROM combatants WHERE encounter_id = ?'
+                'INSERT INTO combatants (encounter_id, name, kind, init_mod, ac, hp_max, hp, notes, in_combat, level, cr, ref)
+                 SELECT ?, name, kind, init_mod, ac, hp_max, hp_max, notes, in_combat, level, cr, ref FROM combatants WHERE encounter_id = ?'
             )->execute([$newId, $id]);
             $pdo->commit();
             echo json_encode(encounter_payload($newId));
@@ -449,6 +477,7 @@ try {
             $init = int_or_null($in['initiative'] ?? null);
             $count = max(1, min(30, (int) ($in['count'] ?? 1)));
             $notes = (string) ($in['notes'] ?? '');
+            $ref = clean_ref($in['ref'] ?? null);
             $inCombat = empty($in['waiting']) ? 1 : 0;
             $cr = $kind === 'pc' ? null : parse_cr($in['cr'] ?? null);
             $level = $kind === 'pc' ? parse_level($in['level'] ?? null) : null;
@@ -471,13 +500,13 @@ try {
             $numbered = $count > 1 || $start > 0;
 
             $st = $pdo->prepare(
-                'INSERT INTO combatants (encounter_id, name, kind, init_mod, initiative, ac, hp_max, hp, notes, in_combat, cr, level)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                'INSERT INTO combatants (encounter_id, name, kind, init_mod, initiative, ac, hp_max, hp, notes, in_combat, cr, level, ref)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
             );
             $pdo->beginTransaction();
             for ($i = 1; $i <= $count; $i++) {
                 $n = $numbered ? $name . ' ' . ($start + $i) : $name;
-                $st->execute([$encId, $n, $kind, $mod, $init, $ac, $hpMax, $hpMax, $notes, $inCombat, $cr, $level]);
+                $st->execute([$encId, $n, $kind, $mod, $init, $ac, $hpMax, $hpMax, $notes, $inCombat, $cr, $level, $ref]);
             }
             $pdo->commit();
             echo json_encode(encounter_payload($encId));
@@ -695,6 +724,8 @@ try {
     }
 } catch (NotionError $e) {
     fail($e->getMessage(), 502);
+} catch (ImageError $e) {
+    fail($e->getMessage(), 400);
 } catch (AdbError $e) {
     fail('5e Artisanal Database: ' . $e->getMessage(), 500);
 } catch (PDOException $e) {

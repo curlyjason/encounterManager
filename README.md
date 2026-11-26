@@ -78,11 +78,23 @@ At the bottom of Setup, under **Monsters from the 5e Artisanal Database**, click
 
 Your column names don't have to match these; you match them up during Setup. Number columns work best. Text such as "1/2" or "15 (natural armor)" also works.
 
+## Monster images
+
+Monster art is shared by everyone who uses Encounter Manager. The collection lives with the app on GitHub (`images/monsters`), and every copy picks up new images automatically, without an update.
+
+- **Add art** from any stat block: click **+ Add art** (or **Change** on an existing picture), then drop an image, paste one, or paste its web address. **Find art ↗** opens an image search for that monster.
+- **Say where it's from.** Each image needs a license: your own work, CC0, CC BY / CC BY-SA (with the artist's name), AI-generated, or **Personal use only**. Most pictures found online are copyrighted: use Personal use only for those. Personal images stay on your computer and are never shared.
+- **Every image is shrunk** to 512 px on its longest side and saved as WebP, usually 5–40 KB.
+- **Sharing:** new shareable images are kept on your computer until you send them in. On **Monster images** (in the sidebar), **Download my new images** makes a small zip: send it to whoever maintains Encounter Manager, or attach it to a GitHub issue. Once it's added to the collection, everyone sees it.
+- **A whole folder** (for example a token pack you own) can be added at once on the Monster images page. Files are matched to monsters by name.
+- Monsters without art show an icon for their creature type (icons by Lorc and Delapouite from game-icons.net, CC BY 3.0).
+
 ## Everyday use
 
 - **Add party** loads the campaign's PCs.
 - **Refresh PCs** re-reads their numbers after you change them in Notion. Blank Notion values never wipe what you typed in the app.
-- **Search monsters** by name and CR, in Notion or the 5e Artisanal Database. Clicking a result fills in the add form.
+- **Search monsters** by name and CR, in Notion or the 5e Artisanal Database. Clicking a result fills in the add form; **stat block** shows it first.
+- **Stat blocks:** click the book icon next to any monster. Choose how they open with the buttons at the top of the stat block: side bar, expanded row, pop-up or new tab. Your choice is remembered. Full stat blocks come from the 5e Artisanal Database; Notion-only monsters show their numbers and a link to their page.
 - **Waiting** keeps monsters out of initiative until you **Bring in** some or all of them.
 - **Pause** keeps the round and turn; **Stop** resets combat.
 - **Budget ×** on the difficulty meter scales the DMG's XP budgets. 1.5 is the default; 1.0 uses the book numbers.

@@ -127,6 +127,7 @@
     }
 
     async function openEncounter(id) {
+        if (id !== state.encounterId) closeStatblock(); // a stat block belongs to its encounter
         state.encounterId = id;
         state.selected.clear();
         try { localStorage.setItem('em.last', id); } catch (_) {}
@@ -193,10 +194,12 @@
                 ? 'Nobody in initiative yet. Bring some in from the waiting list above.'
                 : 'Add combatants above.'}</td></tr>`;
             fadeOutDying(tbody, dying);
+            reattachStatRow();
             return;
         }
         tbody.innerHTML = fighting.map((c) => rowHtml(c, enc.active_id)).join('');
         fadeOutDying(tbody, dying);
+        reattachStatRow();
 
         const active = tbody.querySelector('tr.active');
         if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -249,6 +252,7 @@
                        title="Modifier ${c.init_mod >= 0 ? '+' : ''}${c.init_mod}"></td>
             <td>
                 <input class="name" data-field="name" value="${esc(c.name)}">
+                ${c.kind !== 'pc' ? `<button class="sb-btn ${SB.target?.id === c.id ? 'on' : ''}" title="Stat block" aria-label="Stat block for ${esc(c.name)}"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.2c1.8-.9 3.8-.9 5.5.4v9.6c-1.7-1.3-3.7-1.3-5.5-.4zM13.5 3.2c-1.8-.9-3.8-.9-5.5.4v9.6c1.7-1.3 3.7-1.3 5.5-.4z"/></svg></button>` : ''}
                 <span class="kind kind-${c.kind}">${c.kind.toUpperCase()}</span>
                 ${c.kind === 'pc'
                     ? `<label class="mini" title="Character level">Lv <input class="tiny" data-field="level" type="number" min="1" max="20" value="${c.level ?? ''}" placeholder="?"></label>`
@@ -301,7 +305,7 @@
             const m = members[0];
             return `
             <li data-group="${esc(name)}">
-                <span class="w-name">${esc(name)} <span class="muted">× ${n} waiting</span></span>
+                <span class="w-name">${m.kind !== 'pc' ? `<button class="sb-btn" data-sb-id="${m.id}" title="Stat block" aria-label="Stat block for ${esc(name)}"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.2c1.8-.9 3.8-.9 5.5.4v9.6c-1.7-1.3-3.7-1.3-5.5-.4zM13.5 3.2c-1.8-.9-3.8-.9-5.5.4v9.6c1.7-1.3 3.7-1.3 5.5-.4z"/></svg></button>` : ''}${esc(name)} <span class="muted">× ${n} waiting</span></span>
                 <span class="w-stats muted">AC ${m.ac ?? '–'} · HP ${m.hp_max} · Init ${m.init_mod >= 0 ? '+' : ''}${m.init_mod}</span>
                 <span class="w-actions">
                     <select class="qty" data-group="${esc(name)}" aria-label="How many ${esc(name)}">${opts}</select>
@@ -368,6 +372,8 @@
     }
 
     $('#waiting-groups').addEventListener('click', async (e) => {
+        const sbBtn = e.target.closest('.sb-btn');
+        if (sbBtn) return openStatblock({ id: Number(sbBtn.dataset.sbId) });
         const group = e.target.dataset.group;
         if (!group) return;
         if (e.target.classList.contains('bring')) {
@@ -454,6 +460,7 @@
         render(await api('add_combatant', { encounter_id: state.encounterId, ...body }));
         f.name.value = '';
         f.notes.value = '';
+        f.ref.value = '';
         f.cr.value = '';
         f.level.value = '';
         f.initiative.value = '';
@@ -529,6 +536,7 @@
 
     // Inline field edits save on change.
     rows.addEventListener('change', async (e) => {
+        if (e.target.closest('.sb-row')) return;
         const el = e.target;
         if (el.classList.contains('row-sel')) {
             const id = rowId(el);
@@ -552,6 +560,9 @@
     }
 
     rows.addEventListener('click', async (e) => {
+        if (e.target.closest('.sb-row')) return; // inside an expanded stat block
+        const sbBtn = e.target.closest('.sb-btn');
+        if (sbBtn) return openStatblock({ id: rowId(sbBtn) });
         const el = e.target;
         if (el.dataset.hp) {
             applyHp(el.closest('tr'), Number(el.dataset.hp));
@@ -574,6 +585,7 @@
     });
 
     rows.addEventListener('keydown', (e) => {
+        if (e.target.closest('.sb-row')) return;
         if (e.key === 'Enter' && e.target.classList.contains('amount')) {
             e.preventDefault();
             applyHp(e.target.closest('tr'), e.shiftKey ? 1 : -1);
@@ -653,7 +665,7 @@
                 <li data-i="${i}">
                     <span class="m-name">${esc(m.name)}${m.legendary ? ' <span class="kind kind-monster">LEG</span>' : ''}</span>
                     <span class="m-meta">CR ${esc(m.cr)} · AC ${m.ac ?? '–'} · HP ${m.hp_max} · Init ${m.init_mod >= 0 ? '+' : ''}${m.init_mod}</span>
-                    <span class="m-src">${esc(m.type)} · ${esc(m.source)}${m.link ? ` · <a href="${esc(m.link)}" target="_blank" rel="noopener" class="m-link" title="Open the stat block in a new tab">stat block ↗</a>` : ''}</span>
+                    <span class="m-src">${esc(m.type)} · ${esc(m.source)}${m.ref ? ` · <button class="m-sb linkish" data-i="${i}" title="Show the stat block">stat block</button>` : ''}</span>
                 </li>`).join('') || '<li class="muted">No matches</li>';
             if (more) {
                 results.insertAdjacentHTML('beforeend',
@@ -674,7 +686,11 @@
 
     // Picking a monster fills the Add form so you can set how many, then Add.
     results.addEventListener('click', (e) => {
-        if (e.target.closest('a.m-link')) return; // the stat block link opens in a new tab, it doesn't pick the monster
+        const sb = e.target.closest('.m-sb');
+        if (sb) { // look before you pick
+            results.hidden = true;
+            return openStatblock({ ref: state.monsters[Number(sb.dataset.i)].ref });
+        }
         const li = e.target.closest('li[data-i]');
         if (!li) return;
         const m = state.monsters[Number(li.dataset.i)];
@@ -685,6 +701,7 @@
         f.ac.value = m.ac ?? '';
         f.hp_max.value = m.hp_max;
         f.notes.value = `CR ${m.cr} · ${m.type} · ${m.source}`;
+        f.ref.value = m.ref || '';
         f.cr.value = m.cr === '?' ? '' : m.cr;
         syncAddKind();
         f.count.value = 1;
@@ -708,7 +725,119 @@
     $('#add-combatant').kind.addEventListener('change', syncAddKind);
 
     // Typing a name by hand clears any monster notes left in the form.
-    $('#add-combatant').name.addEventListener('input', (e) => { e.target.form.notes.value = ''; });
+    $('#add-combatant').name.addEventListener('input', (e) => { e.target.form.notes.value = ''; e.target.form.ref.value = ''; });
+
+    // ---- Stat blocks: side bar, expanded row, pop-up or new tab ---------------
+    // One open at a time. The view is a preference (saved in this browser), switchable from the stat block.
+    const SB = { view: null, target: null, data: null, el: null, holder: null };
+    const sbPref = () => { try { return localStorage.getItem('em.sbView') || 'side'; } catch (_) { return 'side'; } };
+    const sbKey = (t) => (t.id ? 'id:' + t.id : 'ref:' + t.ref);
+    const narrow = () => window.matchMedia('(max-width: 1000px)').matches;
+
+    async function openStatblock(target, view = sbPref(), data = null) {
+        if (view === 'tab') {
+            window.open('statblock.php?' + new URLSearchParams(target), '_blank', 'noopener');
+            return;
+        }
+        if (view === 'row' && !document.querySelector(`#rows tr[data-id="${target.id}"]`)) view = 'pop'; // not in the table
+        if (view === 'side' && narrow()) view = 'pop';
+        const same = SB.target && sbKey(SB.target) === sbKey(target) && SB.view === view;
+        closeStatblock();
+        if (same) return; // clicking the same book again closes it
+
+        const el = document.createElement('div');
+        Object.assign(SB, { view, target, el, data: null });
+        mountStatblock();
+        markOpenRow();
+        if (data) {
+            SB.data = data;
+            return drawStatblock();
+        }
+        StatBlock.loading(el);
+        try {
+            const d = await StatBlock.load(target);
+            if (SB.el !== el) return; // closed or replaced while loading
+            SB.data = d;
+            drawStatblock();
+        } catch (e) {
+            if (SB.el === el) el.innerHTML = `<div class="sb-loading bad">${esc(e.message)}</div>`;
+        }
+    }
+
+    function drawStatblock() {
+        StatBlock.render(SB.el, SB.data, {
+            view: SB.view,
+            onClose: closeStatblock,
+            onView: (v) => {
+                try { localStorage.setItem('em.sbView', v); } catch (_) {}
+                const { target, data } = SB;
+                closeStatblock();
+                openStatblock(target, v, data);
+            },
+        });
+    }
+
+    function mountStatblock() {
+        const el = SB.el;
+        if (SB.view === 'side') {
+            const side = $('#sb-side');
+            side.replaceChildren(el);
+            side.hidden = false;
+            document.body.classList.add('has-sb');
+        } else if (SB.view === 'pop') {
+            const ov = document.createElement('div');
+            ov.className = 'sb-overlay';
+            el.classList.add('sb-dialog');
+            ov.append(el);
+            ov.addEventListener('mousedown', (e) => e.target === ov && closeStatblock());
+            document.body.append(ov);
+            SB.holder = ov;
+        } else if (SB.view === 'row') {
+            const tr = document.createElement('tr');
+            tr.className = 'sb-row';
+            const td = document.createElement('td');
+            td.colSpan = 8;
+            td.append(el);
+            tr.append(td);
+            SB.holder = tr;
+            reattachStatRow();
+            tr.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+    }
+
+    /** The table is redrawn on every change: put the expanded stat block back under its row. */
+    function reattachStatRow() {
+        if (SB.view !== 'row' || !SB.holder) return;
+        const tr = document.querySelector(`#rows tr[data-id="${SB.target.id}"]`);
+        if (!tr) return closeStatblock(); // they left the fight (dead, waiting, removed)
+        tr.after(SB.holder);
+        tr.classList.add('sb-open');
+    }
+
+    function markOpenRow() {
+        document.querySelectorAll('#rows .sb-btn.on').forEach((b) => b.classList.remove('on'));
+        if (SB.target?.id) document.querySelector(`#rows tr[data-id="${SB.target.id}"] .sb-btn`)?.classList.add('on');
+    }
+
+    function closeStatblock() {
+        if (!SB.el) return;
+        if (SB.view === 'side') {
+            $('#sb-side').hidden = true;
+            $('#sb-side').replaceChildren();
+            document.body.classList.remove('has-sb');
+        }
+        SB.holder?.remove();
+        document.querySelectorAll('#rows tr.sb-open').forEach((tr) => tr.classList.remove('sb-open'));
+        Object.assign(SB, { view: null, target: null, data: null, el: null, holder: null });
+        markOpenRow();
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const zoom = document.querySelector('.sb-zoom');
+        if (zoom) return zoom.remove();
+        if (SB.el && !SB.el.querySelector('.sb-artform:not([hidden])')?.contains(document.activeElement)) closeStatblock();
+    });
 
     // ---- Select a field's whole contents when you enter it -------------------
     // Works for Tab and click. The click's mouseup would normally drop the selection

@@ -78,6 +78,12 @@ function db(): PDO
         }
     }
 
+    // ref = which monster this is, for its stat block: "adb:html/<book>/<file>.html",
+    // "adb:custom/index.html?file=<x>.js" or "notion:<page id>". Filled in later for older rows.
+    if (!in_array('ref', $cols, true)) {
+        $pdo->exec('ALTER TABLE combatants ADD COLUMN ref TEXT NULL');
+    }
+
     // App-wide settings (key/value).
     $pdo->exec('CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
 

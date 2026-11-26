@@ -77,3 +77,11 @@ a.button {
 #adb-found { margin: 8px 0; }
 #adb-found li { display: block; }
 #step-adb .row-form input { font-family: ui-monospace, Menlo, monospace; }
+
+/* Monster images page */
+.credits { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.credits li { display: grid; grid-template-columns: 44px 1fr; gap: 10px; align-items: center; }
+.credits img { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; background: var(--accent-soft); }
+.credits strong { display: block; }
+a.button.disabled { opacity: .45; pointer-events: none; }
+#import-form { flex-wrap: wrap; align-items: center; }
