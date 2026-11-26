@@ -4,6 +4,21 @@ Each release lists what changed. Newest first.
 
 <!-- new releases go below this line -->
 
+## 2.2.0 — 2026-11-25
+
+### New: generate monster art with AI
+
+- Open **⚙ Setup** and scroll to **Generate monster art with AI**. Paste an OpenAI API key (from platform.openai.com/api-keys), pick the image model and a default quality, and click **Save**.
+- On any stat block, click **+ Add art**: a **Generate with AI** box describes the monster for you. Change the description if you like, pick a quality, and click **Generate**.
+- You see the picture before anything is saved. Click **Save** to keep it, or **Generate again** to try another.
+- Pictures are paid by your own OpenAI account: roughly 1¢ (low), 5¢ (medium) or 20¢ (high) each. You only pay for pictures you generate.
+- Generated pictures are labeled AI-generated with the model's name, and can be shared like any other art.
+- Your key is stored only on your computer.
+
+### The shared collection has begun
+
+The first monster art is in: **Hobgoblin** and **Mage**. Open their stat blocks to see them.
+
 ## 2.1.0 — 2026-11-25
 
 ### New: stat blocks
