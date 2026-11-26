@@ -5,6 +5,7 @@ declare(strict_types=1);
  * JSON API for the setup wizard (setup.php). Never returns the Notion token.
  */
 require __DIR__ . '/lib/setup.php';
+require __DIR__ . '/lib/adb.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -118,7 +119,44 @@ try {
                 'fields'       => ['character' => character_fields(), 'monster' => monster_fields()],
                 'campaigns'    => $camps,
                 'monsters'     => $m ? ['data_source' => $m['data_source'] ?? null, 'columns' => $m['columns'] ?? null] : null,
+                'adb'          => adb_config() ? ['path' => adb_config()['path']] : null,
             ]);
+
+        // ---- 5e Artisanal Database (monster search from a local folder; separate from the Notion steps) ----
+        case 'find_adb':
+            out(['folders' => adb_find_folders()]);
+
+        case 'check_adb':
+        case 'save_adb':
+            $path = trim((string) ($in['path'] ?? ''));
+            $cfg = app_config();
+            if ($path === '') {
+                if (($in['action'] ?? '') === 'save_adb') {
+                    unset($cfg['adb']);
+                    save_config($cfg + ['notion_token' => '', 'campaigns' => []]);
+                    out(['ok' => true, 'removed' => true]);
+                }
+                bad('Type or pick the folder first');
+            }
+            try {
+                $real = adb_check_folder($path);
+                $GLOBALS['ADB_PATH_OVERRIDE'] = $real;
+                $all = adb_monsters();
+            } catch (AdbError $e) {
+                bad($e->getMessage());
+            }
+            $custom = count(array_filter($all, fn($m) => str_ends_with($m['source'], ' (custom)')));
+            $info = ['ok' => true, 'path' => $real, 'monsters' => count($all), 'custom' => $custom];
+            if ($in['action'] === 'save_adb') {
+                $adb = ['path' => $real];
+                if (!empty($cfg['adb']['url']) && realpath((string) ($cfg['adb']['path'] ?? '')) === $real) {
+                    $adb['url'] = $cfg['adb']['url']; // keep a web address set by hand for the same folder
+                }
+                $cfg['adb'] = $adb;
+                save_config($cfg + ['notion_token' => '', 'campaigns' => []]);
+                @unlink(ADB_CACHE);
+            }
+            out($info);
 
         case 'test_token':
             $token = token_from($in);
@@ -149,6 +187,9 @@ try {
             $cfg = ['notion_token' => $token, 'campaigns' => []];
             if (!empty($old['allow_remote_setup'])) {
                 $cfg['allow_remote_setup'] = true;
+            }
+            if (!empty($old['adb'])) {
+                $cfg['adb'] = $old['adb']; // local 5e Artisanal Database for monster search (not part of the wizard)
             }
             $created = [];
 

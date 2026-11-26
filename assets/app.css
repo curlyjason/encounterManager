@@ -321,3 +321,5 @@ button.linkish { border: none; background: none; padding: 0; color: var(--muted)
 .setup-link:hover { border-color: var(--accent); color: var(--accent); }
 .sidebar .enc-list { margin-bottom: 16px; }
 .setup-link span { font-size: 20px; line-height: 1; }
+.m-src .m-link { color: var(--accent); text-decoration: none; }
+.m-src .m-link:hover { text-decoration: underline; }

@@ -4,6 +4,7 @@ lib/config.php
 lib/config.backup.php
 lib/config.php.tmp
 data/update-check.json
+data/adb-monsters.json
 data/backups/
 data/updates/
 dist/

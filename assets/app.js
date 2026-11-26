@@ -653,7 +653,7 @@
                 <li data-i="${i}">
                     <span class="m-name">${esc(m.name)}${m.legendary ? ' <span class="kind kind-monster">LEG</span>' : ''}</span>
                     <span class="m-meta">CR ${esc(m.cr)} · AC ${m.ac ?? '–'} · HP ${m.hp_max} · Init ${m.init_mod >= 0 ? '+' : ''}${m.init_mod}</span>
-                    <span class="m-src">${esc(m.type)} · ${esc(m.source)}</span>
+                    <span class="m-src">${esc(m.type)} · ${esc(m.source)}${m.link ? ` · <a href="${esc(m.link)}" target="_blank" rel="noopener" class="m-link" title="Open the stat block in a new tab">stat block ↗</a>` : ''}</span>
                 </li>`).join('') || '<li class="muted">No matches</li>';
             if (more) {
                 results.insertAdjacentHTML('beforeend',
@@ -674,6 +674,7 @@
 
     // Picking a monster fills the Add form so you can set how many, then Add.
     results.addEventListener('click', (e) => {
+        if (e.target.closest('a.m-link')) return; // the stat block link opens in a new tab, it doesn't pick the monster
         const li = e.target.closest('li[data-i]');
         if (!li) return;
         const m = state.monsters[Number(li.dataset.i)];
@@ -737,7 +738,9 @@
         state.difficultyScale = meta.difficulty_scale;
         $('#campaign').insertAdjacentHTML('beforeend',
             meta.campaigns.map((c) => `<option value="${esc(c.key)}">${esc(c.name)}</option>`).join(''));
-        $('#monster-q').disabled = !meta.notion;
+        $('#monster-q').disabled = !meta.monster_source;
+        $('#monster-q').placeholder = meta.monster_source === 'adb'
+            ? 'Search monsters in the 5e Artisanal Database…' : 'Search monsters in Notion…';
         $('#notion-off').hidden = meta.notion;
         await loadList();
         let last = null;

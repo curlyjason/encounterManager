@@ -25,7 +25,15 @@ return [
         ],
     ],
 
-    // Monster database (optional).
+    // Search monsters in a local copy of Sly Flourish's 5e Artisanal Database instead of Notion (optional).
+    // Set it in Setup ("Monsters from the 5e Artisanal Database"). path: the 5eADB folder on this computer.
+    // url (optional): its own web address, if it has one; otherwise Encounter Manager serves the stat blocks itself.
+    // 'adb' => [
+    //     'path' => '/Users/you/Documents/5e_artisanal_database',
+    //     'url'  => 'http://localhost/5e_artisanal_database',
+    // ],
+
+    // Monster database in Notion (optional; not used for monster search while 'adb' is set).
     'monsters' => [
         'data_source' => '00000000-0000-0000-0000-000000000000',
         'database'    => '00000000-0000-0000-0000-000000000000',

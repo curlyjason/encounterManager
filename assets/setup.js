@@ -226,6 +226,78 @@
         }
     }
 
+    // ---- optional: 5e Artisanal Database -----------------------------------
+    function renderAdb() {
+        const on = !!st.status.adb;
+        $('#adb-off').hidden = !on;
+        $('#monster-db-note').hidden = !on;
+        done('#step-adb', on);
+    }
+
+    async function saveAdb(path) {
+        const btn = $('#btn-adb-save');
+        btn.disabled = true;
+        btn.textContent = 'Checking…';
+        try {
+            const r = await api('save_adb', { path });
+            $('#adb-path').value = r.path;
+            $('#adb-found').hidden = true;
+            show($('#adb-result'), `✓ Found ${r.monsters.toLocaleString()} monsters${r.custom ? ` (${r.custom} of them your own custom monsters)` : ''}. Monster search now uses this folder.`, true);
+            st.status = await api('status');
+            $('#back-link').hidden = !st.status.configured;
+            renderAdb();
+        } catch (e) {
+            show($('#adb-result'), esc(e.message), false);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Use this folder';
+        }
+    }
+
+    $('#btn-adb-save').addEventListener('click', () => saveAdb($('#adb-path').value));
+    $('#adb-path').addEventListener('keydown', (e) => e.key === 'Enter' && saveAdb(e.target.value));
+    // Dropping a folder from Finder pastes its path (Safari/Chrome give a file:// URL or the path as text).
+    $('#adb-path').addEventListener('drop', (e) => {
+        const t = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+        if (!t) return;
+        e.preventDefault();
+        e.target.value = decodeURIComponent(t.trim().split('\n')[0].replace(/^file:\/\//, '')).replace(/\/$/, '');
+    });
+    $('#btn-adb-find').addEventListener('click', async () => {
+        const btn = $('#btn-adb-find');
+        btn.disabled = true;
+        btn.textContent = 'Looking…';
+        try {
+            const { folders } = await api('find_adb');
+            if (!folders.length) {
+                $('#adb-found').hidden = true;
+                show($('#adb-result'), 'Couldn’t find it near Encounter Manager or in your Sites, Downloads, Documents or Desktop folders. Type or drag in its location instead.', false);
+            } else if (folders.length === 1) {
+                await saveAdb(folders[0]);
+            } else {
+                show($('#adb-result'), `Found ${folders.length} copies. Pick one:`, true);
+                $('#adb-found').innerHTML = folders.map((f) => `<li><button class="linkish" data-path="${esc(f)}">${esc(f)}</button></li>`).join('');
+                $('#adb-found').hidden = false;
+            }
+        } catch (e) {
+            show($('#adb-result'), esc(e.message), false);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Find it';
+        }
+    });
+    $('#adb-found').addEventListener('click', (e) => {
+        const b = e.target.closest('button[data-path]');
+        if (b) saveAdb(b.dataset.path);
+    });
+    $('#btn-adb-remove').addEventListener('click', async () => {
+        await api('save_adb', { path: '' });
+        $('#adb-path').value = '';
+        show($('#adb-result'), 'Monster search uses Notion again.', true);
+        st.status = await api('status');
+        renderAdb();
+    });
+
     // ---- events ------------------------------------------------------------
     $('#btn-test').addEventListener('click', connect);
     $('#token').addEventListener('keydown', (e) => e.key === 'Enter' && connect());
@@ -280,6 +352,9 @@
         $('#token-saved').hidden = !st.status.has_token;
         const ok = renderRequirements();
         unlock('#step-token', ok);
+        unlock('#step-adb', ok);
+        if (st.status.adb) $('#adb-path').value = st.status.adb.path;
+        renderAdb();
         if (ok && st.status.has_token) connect(); // already set up: show what's saved
     })();
 })();

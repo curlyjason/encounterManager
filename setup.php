@@ -76,6 +76,7 @@ $v = fn(string $f) => filemtime(__DIR__ . '/assets/' . $f);
 
         <div id="db-pick" hidden>
             <h3>Monster database</h3>
+            <p id="monster-db-note" class="muted small" hidden>Monster search uses the 5e Artisanal Database (below), so this is only needed if you stop using it.</p>
             <select id="monster-db"></select>
             <h3>Campaigns <span class="muted small">Tick each database that lists a campaign's player characters.</span></h3>
             <ul id="campaign-list" class="db-list"></ul>
@@ -96,6 +97,26 @@ $v = fn(string $f) => filemtime(__DIR__ . '/assets/' . $f);
         <button id="btn-save" class="primary">Save settings</button>
         <p id="save-result" class="result" hidden></p>
         <p id="save-done" hidden><a class="button primary" href="./">Open Encounter Manager →</a></p>
+    </section>
+
+    <!-- Optional: 5eADB -->
+    <section class="step locked" id="step-adb">
+        <h2><span class="num">+</span> Monsters from the 5e Artisanal Database <span class="muted small">optional</span></h2>
+        <p>If you have Sly Flourish's <strong>5e Artisanal Database</strong> (a Patreon reward) unzipped on this computer,
+            monster search can use its 3,000+ monsters instead of a Notion database, with a link to each stat block.
+            It works with or without Notion.</p>
+        <div class="row-form">
+            <input id="adb-path" type="text" placeholder="/Users/you/Documents/5e_artisanal_database" autocomplete="off" spellcheck="false"
+                   aria-label="5e Artisanal Database folder">
+            <button id="btn-adb-find">Find it</button>
+            <button id="btn-adb-save" class="primary">Use this folder</button>
+        </div>
+        <p class="muted small">The folder that holds <code>index.html</code>, <code>monsters</code> and <code>css_js</code>.
+            On a Mac, you can drag the folder from Finder into the box. On Windows, Shift + right-click it → <em>Copy as path</em>.</p>
+        <ul id="adb-found" class="db-list" hidden></ul>
+        <p id="adb-result" class="result" hidden></p>
+        <p id="adb-off" class="small" hidden><button id="btn-adb-remove" class="linkish">Stop using it</button>
+            <span class="muted">(monster search goes back to Notion)</span></p>
     </section>
     <?php endif; ?>
 </main>

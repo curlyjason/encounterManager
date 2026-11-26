@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/lib/db.php';
 require __DIR__ . '/lib/notion.php';
+require __DIR__ . '/lib/adb.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -264,6 +265,8 @@ try {
                 'conditions' => CONDITIONS,
                 'kinds'      => KINDS,
                 'notion'     => notion_configured(),
+                // Where monster search looks: the local 5e Artisanal Database if set up, else Notion.
+                'monster_source' => adb_configured() ? 'adb' : (notion_configured() && !empty(app_config()['monsters']) ? 'notion' : null),
                 'campaigns'  => campaigns(),
                 'difficulty_scale' => (float) setting('difficulty_scale', DEFAULT_DIFFICULTY_SCALE),
             ]);
@@ -373,7 +376,8 @@ try {
                 echo json_encode(['monsters' => [], 'more' => false]);
                 break;
             }
-            echo json_encode(search_monsters(mb_strlen($q) < 2 ? '' : $q, $crMin, $crMax));
+            $q = mb_strlen($q) < 2 ? '' : $q;
+            echo json_encode(adb_configured() ? adb_search_monsters($q, $crMin, $crMax) : search_monsters($q, $crMin, $crMax));
             break;
 
         case 'list_encounters':
@@ -691,6 +695,8 @@ try {
     }
 } catch (NotionError $e) {
     fail($e->getMessage(), 502);
+} catch (AdbError $e) {
+    fail('5e Artisanal Database: ' . $e->getMessage(), 500);
 } catch (PDOException $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();

@@ -61,6 +61,12 @@ On the first run you land on **Setup**. It walks you through these steps:
 
 You can come back any time with **⚙ Setup** at the bottom of the sidebar, for example to add a new campaign.
 
+### Optional: monsters from the 5e Artisanal Database
+
+If you have Sly Flourish's **5e Artisanal Database** (a Patreon reward) unzipped on this computer, monster search can use its 3,000+ monsters instead of a Notion monster database. Your custom monsters in its `monsters/custom` folder are included.
+
+At the bottom of Setup, under **Monsters from the 5e Artisanal Database**, click **Find it**, or type or drag in the folder that holds its `index.html`, `monsters` and `css_js` folders, then click **Use this folder**. Each search result gets a **stat block ↗** link that opens the monster's page; Encounter Manager serves those pages from that folder, so no extra setup is needed. **Stop using it** switches monster search back to Notion. Campaigns and PCs always come from Notion.
+
 ### What the Notion databases need
 
 | Characters database (one per campaign) | Monster database |
@@ -76,7 +82,7 @@ Your column names don't have to match these; you match them up during Setup. Num
 
 - **Add party** loads the campaign's PCs.
 - **Refresh PCs** re-reads their numbers after you change them in Notion. Blank Notion values never wipe what you typed in the app.
-- **Search monsters** by name and CR. Clicking a result fills in the add form.
+- **Search monsters** by name and CR, in Notion or the 5e Artisanal Database. Clicking a result fills in the add form.
 - **Waiting** keeps monsters out of initiative until you **Bring in** some or all of them.
 - **Pause** keeps the round and turn; **Stop** resets combat.
 - **Budget ×** on the difficulty meter scales the DMG's XP budgets. 1.5 is the default; 1.0 uses the book numbers.
