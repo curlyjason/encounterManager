@@ -5,6 +5,7 @@ lib/config.backup.php
 lib/config.php.tmp
 data/update-check.json
 data/adb-monsters.json
+data/adb-spells.json
 data/my-images/
 data/image-cache/
 data/image-manifest.json

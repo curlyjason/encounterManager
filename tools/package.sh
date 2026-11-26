@@ -15,7 +15,7 @@ rsync -a \
     --exclude 'dist/' --exclude 'tools/' --exclude '.gitignore' \
     --exclude 'lib/config.php' --exclude 'lib/config.backup.php' --exclude 'lib/config.php.tmp' \
     --exclude 'data/*.sqlite' --exclude 'data/*.sqlite-*' \
-    --exclude 'data/update-check.json' --exclude 'data/adb-monsters.json' --exclude 'data/my-images/' --exclude 'data/image-cache/' --exclude 'data/image-manifest.json' --exclude 'data/*.zip' --exclude '/images/' --exclude 'data/backups/' --exclude 'data/updates/' \
+    --exclude 'data/update-check.json' --exclude 'data/adb-monsters.json' --exclude 'data/adb-spells.json' --exclude 'data/my-images/' --exclude 'data/image-cache/' --exclude 'data/image-manifest.json' --exclude 'data/*.zip' --exclude '/images/' --exclude 'data/backups/' --exclude 'data/updates/' \
     ./ "$STAGE/$NAME/"
 
 # Safety net: never ship a key or a database.

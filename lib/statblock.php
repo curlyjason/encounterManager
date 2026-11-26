@@ -96,12 +96,44 @@ function adb_markdown(string $ref): ?string
     return trim((string) preg_replace('~\A\s*#\s+[^\n]*\n~', '', $md));
 }
 
+/** A player character's block: what the encounter knows, plus their sheet and Notion page. */
+function pc_block(array $c): array
+{
+    $player = preg_match('~^Player:\s*(.+)$~m', (string) $c['notes'], $m) ? trim($m[1]) : '';
+    $notes = trim((string) preg_replace('~^Player:\s*.+$~m', '', (string) $c['notes']));
+    $pageId = str_starts_with((string) $c['ref'], 'notion:') ? substr((string) $c['ref'], 7) : null;
+    return [
+        'origin'     => 'pc',
+        'id'         => (int) $c['id'],
+        'ref'        => $c['ref'],
+        'name'       => (string) $c['name'],
+        'player'     => $player,
+        'level'      => $c['level'] === null ? null : (int) $c['level'],
+        'ac'         => $c['ac'] === null ? null : (int) $c['ac'],
+        'hp'         => (int) $c['hp_max'],
+        'hp_now'     => (int) $c['hp'],
+        'temp_hp'    => (int) $c['temp_hp'],
+        'init'       => (int) $c['init_mod'],
+        'conditions' => json_decode((string) $c['conditions'], true) ?: [],
+        'notes'      => $notes,
+        'link'       => $c['link'] ?? null,
+        'notion_url' => $pageId ? 'https://www.notion.so/' . str_replace('-', '', $pageId) : null,
+        'type'       => 'Player character',
+        'type_icon'  => 'assets/types/humanoid.svg',
+        'image'      => null,
+        'markdown'   => null,
+    ];
+}
+
 /**
  * Everything a stat block view shows.
  * $c: the combatant row (optional). $ref: a monster ref (from search results, or the combatant's own).
  */
 function statblock_data(?array $c, ?string $ref): array
 {
+    if ($c && ($c['kind'] ?? '') === 'pc') {
+        return pc_block($c);
+    }
     $ref = $ref ?: ($c['ref'] ?? null);
     $out = [
         'ref' => $ref, 'name' => $c ? preg_replace('~\s+\d+$~', '', (string) $c['name']) : '', 'type' => '', 'source' => '',

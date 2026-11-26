@@ -321,3 +321,22 @@ button.linkish { border: none; background: none; padding: 0; color: var(--muted)
 .setup-link:hover { border-color: var(--accent); color: var(--accent); }
 .sidebar .enc-list { margin-bottom: 16px; }
 .setup-link span { font-size: 20px; line-height: 1; }
+
+/* Hiding the encounter list */
+.side-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.side-toggle { padding: 2px 9px; font-size: 15px; line-height: 1.2; color: var(--muted); }
+.side-toggle:hover { color: var(--accent); }
+body.side-hidden .sidebar { display: none; }
+body.side-hidden main { padding-left: 56px; }
+.side-toggle.show { position: fixed; top: 14px; left: 10px; z-index: 20; background: var(--panel); }
+body.side-hidden .layout { grid-template-columns: minmax(0, 1fr); }
+body.side-hidden.has-sb .layout { grid-template-columns: minmax(0, 1fr) minmax(340px, 430px); }
+
+.follow-turns { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: var(--muted); margin-right: 4px; cursor: pointer; }
+
+/* The encounter list stays put while the page scrolls; Setup and the version sit at the bottom of the window. */
+@media (min-width: 901px) {
+    .sidebar { position: sticky; top: 0; align-self: start; height: 100vh; overflow: hidden; }
+    .sidebar .enc-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin-bottom: 12px; }
+    .side-foot { flex: none; padding-top: 12px; border-top: 1px solid var(--line); }
+}

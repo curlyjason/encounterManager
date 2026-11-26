@@ -42,14 +42,52 @@
 
     const sign = (n) => (n == null ? '–' : (n >= 0 ? '+' : '') + n);
 
+    function viewsHtml(opts) {
+        return opts.view === 'tab' ? '' : `<div class="sb-bar"><span class="sb-bar-label muted">Show as</span><div class="sb-views" role="group" aria-label="Show stat blocks as">
+            ${VIEWS.map(([v, label, icon]) => `<button class="sb-view ${v === opts.view ? 'on' : ''}" data-view="${v}" title="${label}" aria-label="${label}" aria-pressed="${v === opts.view}">${icon}</button>`).join('')}
+            </div><button class="sb-close" title="Close (Esc)" aria-label="Close">✕</button>
+        </div>`;
+    }
+
+    function pcHtml(d, opts) {
+        const hp = `${d.hp_now} / ${d.hp}${d.temp_hp ? ` +${d.temp_hp}` : ''}`;
+        const who = [d.level ? `Level ${d.level}` : 'Level ?', d.player ? `played by ${d.player}` : ''].filter(Boolean).join(' · ');
+        const links = [
+            d.link ? `<a class="button primary" href="${esc(d.link)}" target="_blank" rel="noopener">Character sheet ↗</a>` : '',
+            d.notion_url ? `<a class="button" href="${esc(d.notion_url)}" target="_blank" rel="noopener">Open in Notion ↗</a>` : '',
+        ].join('');
+        return `${viewsHtml(opts)}
+        <header class="sb-head">
+            <div class="sb-art"><span class="sb-type-icon" style="-webkit-mask-image:url('${esc(d.type_icon)}');mask-image:url('${esc(d.type_icon)}')" role="img" aria-label="Player character"></span></div>
+            <div class="sb-title">
+                <h2>${esc(d.name)} <span class="kind kind-pc">PC</span></h2>
+                <div class="sb-sub muted">${esc(who)}</div>
+                <div class="sb-stats">
+                    <span><b>AC</b> ${esc(d.ac ?? '–')}</span>
+                    <span><b>HP</b> ${esc(hp)}</span>
+                    <span><b>Init</b> ${esc(sign(d.init))}</span>
+                </div>
+            </div>
+        </header>
+        <div class="sb-body sb-pc">
+            ${d.conditions.length ? `<p class="sb-conds">${d.conditions.map((k) => `<span class="chip">${esc(k)}</span>`).join(' ')}</p>` : ''}
+            ${d.notes ? `<p>${esc(d.notes)}</p>` : ''}
+            ${links ? `<p class="sb-links">${links}</p>` : ''}
+            <form class="sb-link-form">
+                <label class="sb-field"><span>Character sheet link <span class="muted">(D&amp;D Beyond, a PDF, anything with a web address)</span></span>
+                    <span class="sb-link-row"><input name="link" type="url" placeholder="https://…" value="${esc(d.link || '')}" autocomplete="off">
+                    <button class="primary">Save</button></span></label>
+                <p class="sb-art-error result bad" hidden></p>
+            </form>
+            ${!d.notion_url ? '<p class="muted small">Not linked to Notion. Pick the campaign and use <em>Refresh PCs</em> to link the party.</p>' : ''}
+        </div>`;
+    }
+
     function headHtml(d, opts) {
         const art = d.image
             ? `<img class="sb-img" src="${esc(d.image.url)}" alt="${esc(d.name)}">`
             : `<span class="sb-type-icon" style="-webkit-mask-image:url('${esc(d.type_icon)}');mask-image:url('${esc(d.type_icon)}')" role="img" aria-label="${esc(d.type || 'Monster')}"></span>`;
-        const views = opts.view === 'tab' ? '' : `<div class="sb-bar"><span class="sb-bar-label muted">Show as</span><div class="sb-views" role="group" aria-label="Show stat blocks as">
-            ${VIEWS.map(([v, label, icon]) => `<button class="sb-view ${v === opts.view ? 'on' : ''}" data-view="${v}" title="${label}" aria-label="${label}" aria-pressed="${v === opts.view}">${icon}</button>`).join('')}
-            </div><button class="sb-close" title="Close (Esc)" aria-label="Close">✕</button>
-        </div>`;
+        const views = viewsHtml(opts);
         return `${views}
         <header class="sb-head">
             <div class="sb-art ${d.image ? 'has-img' : ''}">
@@ -289,7 +327,34 @@
     // ---- Render --------------------------------------------------------------------------
     function render(el, d, opts = {}) {
         el.classList.add('sb');
+        if (d.origin === 'pc') {
+            el.innerHTML = pcHtml(d, opts);
+            el.onclick = (e) => {
+                const b = e.target.closest('button');
+                if (!b || !el.contains(b)) return;
+                if (b.dataset.view) return opts.onView?.(b.dataset.view);
+                if (b.classList.contains('sb-close')) return opts.onClose?.();
+            };
+            el.querySelector('.sb-link-form').onsubmit = async (e) => {
+                e.preventDefault();
+                const err = e.target.querySelector('.sb-art-error');
+                try {
+                    const link = e.target.link.value.trim();
+                    const payload = await post('api.php', { action: 'update_combatant', id: d.id, fields: { link } });
+                    d.link = link || null;
+                    render(el, d, opts);
+                    opts.onSaved?.(payload);
+                } catch (ex) {
+                    err.hidden = false;
+                    err.textContent = ex.message;
+                }
+            };
+            return;
+        }
         el.innerHTML = headHtml(d, opts) + '<div class="sb-artform" hidden></div>' + bodyHtml(d) + footHtml(d);
+        el.dataset.source = d.source || '';
+        hideTip(true);
+        markSpells(el.querySelector('.sb-body'));
         const rerender = (image) => {
             d.image = image;
             render(el, d, opts);
@@ -324,6 +389,201 @@
             document.body.append(big);
         });
     }
+
+    // ---- Spells: mark them in the stat block, and show a hover box like D&D Beyond -------
+    let spellNames = null;
+    function getSpellNames() {
+        spellNames ||= post('api.php', { action: 'spell_names' }).then((r) => new Set(r.names)).catch(() => new Set());
+        return spellNames;
+    }
+    const norm = (t) => t.toLowerCase().replace(/[’'‘]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+
+    // "Cantrips (at will):", "1st level (4 slots):", "At Will:", "2/day each:", "3e/Day Each:"
+    const LIST_LABEL = /(?:cantrips?|at[ -]will|\d+(?:st|nd|rd|th)[ -]level|\d+\s*e?\s*\/\s*day(?:\s+each)?|\d+\s+slots?)[^:\n]{0,30}:\s*/ig;
+    // "works like the levitate spell", "as the counterspell spell"
+    const THE_SPELL = /\b(?:the|a|an)\s+((?:[a-z’'-]+\s+){0,4}[a-z’'-]+)\s+spells?\b/ig;
+
+    function spellRanges(text, names) {
+        const found = [];
+        const add = (start, word) => { if (word && names.has(norm(word))) found.push([start, start + word.length, word]); };
+        let listSeen = false;
+        let lineStart = 0;
+        for (const line of text.split('\n')) {
+            LIST_LABEL.lastIndex = 0;
+            const m = LIST_LABEL.exec(line);
+            if (m) {
+                listSeen = true;
+                const from = m.index + m[0].length;
+                const rest = line.slice(from);
+                const item = /[^,;]+/g;
+                let it;
+                while ((it = item.exec(rest))) {
+                    // "detect thoughts (range 120 ft, desc: )": anything from a bracket on is notes, not the name.
+                    const core = it[0].split('(')[0].replace(/\*|\.$/g, ' ').replace(/^\s*(?:and|or)\s+/i, '').trim();
+                    if (core) add(lineStart + from + it.index + it[0].indexOf(core), core);
+                }
+            } else if (listSeen) {
+                // Level Up puts one spell per line under the label.
+                const core = line.replace(/\(.*?\)|\*/g, ' ').trim().replace(/[.,;]$/, '');
+                if (core && core.length < 40) add(lineStart + line.indexOf(core), core);
+            }
+            THE_SPELL.lastIndex = 0;
+            let t;
+            while ((t = THE_SPELL.exec(line))) {
+                const words = t[1].split(/\s+/);
+                for (let k = words.length; k > 0; k--) {
+                    const cand = words.slice(-k).join(' ');
+                    if (names.has(norm(cand))) {
+                        add(lineStart + t.index + t[0].indexOf(cand, t[0].indexOf(t[1])), cand);
+                        break;
+                    }
+                }
+            }
+            lineStart += line.length + 1;
+        }
+        return found.sort((a, b) => a[0] - b[0]).filter((r, i, arr) => !i || r[0] >= arr[i - 1][1]);
+    }
+
+    async function markSpells(body) {
+        if (!body) return;
+        const names = await getSpellNames();
+        if (!names.size) return;
+        const tag = (el, name) => {
+            el.classList.add('spell');
+            el.dataset.spell = name;
+            el.tabIndex = 0;
+        };
+        // Italic names (2024 SRD *Fireball*, Black Flag _detect magic_).
+        body.querySelectorAll('em, i').forEach((em) => {
+            const t = em.textContent.trim();
+            if (!em.querySelector('*') && names.has(norm(t))) tag(em, t);
+        });
+        // Plain-text spell lists and "the X spell" mentions.
+        const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, {
+            acceptNode: (n) => (n.parentElement.closest('.spell, a, h1, h2, h3, h4, th') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+        });
+        const nodes = [];
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+        nodes.forEach((node) => {
+            const text = node.nodeValue;
+            if (!/spell|cantrip|at will|\/day|level/i.test(text) && !/spell/i.test(node.parentElement.closest('li, p')?.textContent || '')) return;
+            const ranges = spellRanges(text, names);
+            if (!ranges.length) return;
+            const frag = document.createDocumentFragment();
+            let pos = 0;
+            ranges.forEach(([a, b, word]) => {
+                frag.append(text.slice(pos, a));
+                const span = document.createElement('span');
+                span.textContent = text.slice(a, b);
+                tag(span, word);
+                frag.append(span);
+                pos = b;
+            });
+            frag.append(text.slice(pos));
+            node.replaceWith(frag);
+        });
+    }
+
+    const tip = document.createElement('div');
+    tip.className = 'spell-tip';
+    tip.hidden = true;
+    tip.setAttribute('role', 'tooltip');
+    const spellCache = new Map();
+    let tipFor = null;
+    let showTimer = null;
+    let hideTimer = null;
+
+    function placeTip(anchor) {
+        const r = anchor.getBoundingClientRect();
+        const w = Math.min(400, window.innerWidth - 24);
+        tip.style.width = w + 'px';
+        let left = Math.min(Math.max(12, r.left), window.innerWidth - w - 12);
+        tip.style.left = left + 'px';
+        tip.style.top = '0px';
+        tip.style.maxHeight = '';
+        const h = tip.offsetHeight;
+        const below = window.innerHeight - r.bottom - 12;
+        const above = r.top - 12;
+        if (h <= below || below >= above) {
+            tip.style.top = (r.bottom + 6) + 'px';
+            tip.style.maxHeight = Math.max(160, below - 6) + 'px';
+        } else {
+            tip.style.maxHeight = Math.max(160, above - 6) + 'px';
+            tip.style.top = Math.max(12, r.top - 6 - Math.min(h, above - 6)) + 'px';
+        }
+    }
+
+    function levelLine(sp) {
+        const school = sp.school || 'Spell';
+        const lvl = sp.level === 0 ? `${school} cantrip` : `Level ${sp.level} ${school}`;
+        return lvl + (sp.ritual ? ' (ritual)' : '');
+    }
+
+    function tipHtml(sp) {
+        const dur = sp.concentration && !/concentration/i.test(sp.duration) ? `Concentration, ${sp.duration}` : sp.duration;
+        const comp = sp.components + (sp.material ? ` (${sp.material.replace(/\.$/, '')})` : '');
+        const rows = [['Casting Time', sp.casting_time], ['Range', sp.range], ['Components', comp], ['Duration', dur]]
+            .filter(([, v]) => v).map(([k, v]) => `<div><b>${k}</b> ${esc(v)}</div>`).join('');
+        return `<div class="st-head"><strong>${esc(sp.name)}</strong><span class="muted">${esc(levelLine(sp))}</span></div>
+            ${rows ? `<div class="st-props">${rows}</div>` : ''}
+            <div class="st-desc">${mdToHtml(sp.desc)}${sp.higher_level ? `<p><b><i>${sp.level === 0 ? 'Cantrip Upgrade.' : 'Using a Higher-Level Spell Slot.'}</i></b> ${esc(sp.higher_level)}</p>` : ''}</div>
+            <div class="st-foot muted">${esc(sp.source)}${sp.classes ? ' · ' + esc(sp.classes) : ''}</div>`;
+    }
+
+    async function showTip(anchor) {
+        clearTimeout(hideTimer);
+        if (tipFor === anchor && !tip.hidden) return;
+        tipFor = anchor;
+        if (!tip.isConnected) document.body.append(tip);
+        const name = anchor.dataset.spell;
+        const source = anchor.closest('.sb')?.dataset.source || '';
+        const key = norm(name) + '|' + source;
+        tip.innerHTML = '<div class="muted">Loading…</div>';
+        tip.hidden = false;
+        placeTip(anchor);
+        try {
+            if (!spellCache.has(key)) spellCache.set(key, post('api.php', { action: 'spell', name, source }));
+            const sp = await spellCache.get(key);
+            if (tipFor !== anchor) return;
+            tip.innerHTML = tipHtml(sp);
+        } catch (e) {
+            spellCache.delete(key);
+            if (tipFor === anchor) tip.innerHTML = `<div class="bad">${esc(e.message)}</div>`;
+        }
+        if (tipFor === anchor) placeTip(anchor);
+    }
+    function hideTip(now = false) {
+        clearTimeout(showTimer);
+        clearTimeout(hideTimer);
+        const go = () => { tip.hidden = true; tipFor = null; };
+        now ? go() : (hideTimer = setTimeout(go, 220));
+    }
+
+    document.addEventListener('mouseover', (e) => {
+        const s = e.target.closest?.('.spell');
+        if (s) {
+            clearTimeout(hideTimer);
+            clearTimeout(showTimer);
+            showTimer = setTimeout(() => showTip(s), 120);
+        } else if (e.target.closest?.('.spell-tip')) {
+            clearTimeout(hideTimer); // moving into the box keeps it open (so long spells can scroll)
+        }
+    });
+    document.addEventListener('mouseout', (e) => {
+        if (e.target.closest?.('.spell, .spell-tip') && !e.relatedTarget?.closest?.('.spell-tip, .spell')) hideTip();
+    });
+    document.addEventListener('focusin', (e) => { if (e.target.classList?.contains('spell')) showTip(e.target); });
+    document.addEventListener('focusout', (e) => { if (e.target.classList?.contains('spell')) hideTip(); });
+    document.addEventListener('click', (e) => {
+        const s = e.target.closest?.('.spell');
+        if (s) { e.preventDefault(); tipFor === s && !tip.hidden ? hideTip(true) : showTip(s); } // taps on touch screens
+        else if (!e.target.closest?.('.spell-tip')) hideTip(true);
+    });
+    // Esc closes the spell box first (before the stat block).
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !tip.hidden) { e.stopImmediatePropagation(); hideTip(true); }
+    }, true);
+    window.addEventListener('scroll', () => tip.hidden || hideTip(true), true);
 
     async function load(target) {
         const res = await fetch('api.php', {

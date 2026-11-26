@@ -200,6 +200,7 @@
         tbody.innerHTML = fighting.map((c) => rowHtml(c, enc.active_id)).join('');
         fadeOutDying(tbody, dying);
         reattachStatRow();
+        syncPcBlock();
 
         const active = tbody.querySelector('tr.active');
         if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -252,7 +253,7 @@
                        title="Modifier ${c.init_mod >= 0 ? '+' : ''}${c.init_mod}"></td>
             <td>
                 <input class="name" data-field="name" value="${esc(c.name)}">
-                ${c.kind !== 'pc' ? `<button class="sb-btn ${SB.target?.id === c.id ? 'on' : ''}" title="Stat block" aria-label="Stat block for ${esc(c.name)}"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.2c1.8-.9 3.8-.9 5.5.4v9.6c-1.7-1.3-3.7-1.3-5.5-.4zM13.5 3.2c-1.8-.9-3.8-.9-5.5.4v9.6c1.7-1.3 3.7-1.3 5.5-.4z"/></svg></button>` : ''}
+                <button class="sb-btn ${SB.target?.id === c.id ? 'on' : ''}" title="${c.kind === 'pc' ? 'Character' : 'Stat block'}" aria-label="Stat block for ${esc(c.name)}"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.2c1.8-.9 3.8-.9 5.5.4v9.6c-1.7-1.3-3.7-1.3-5.5-.4zM13.5 3.2c-1.8-.9-3.8-.9-5.5.4v9.6c1.7-1.3 3.7-1.3 5.5-.4z"/></svg></button>
                 <span class="kind kind-${c.kind}">${c.kind.toUpperCase()}</span>
                 ${c.kind === 'pc'
                     ? `<label class="mini" title="Character level">Lv <input class="tiny" data-field="level" type="number" min="1" max="20" value="${c.level ?? ''}" placeholder="?"></label>`
@@ -305,7 +306,7 @@
             const m = members[0];
             return `
             <li data-group="${esc(name)}">
-                <span class="w-name">${m.kind !== 'pc' ? `<button class="sb-btn" data-sb-id="${m.id}" title="Stat block" aria-label="Stat block for ${esc(name)}"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.2c1.8-.9 3.8-.9 5.5.4v9.6c-1.7-1.3-3.7-1.3-5.5-.4zM13.5 3.2c-1.8-.9-3.8-.9-5.5.4v9.6c1.7-1.3 3.7-1.3 5.5-.4z"/></svg></button>` : ''}${esc(name)} <span class="muted">× ${n} waiting</span></span>
+                <span class="w-name"><button class="sb-btn" data-sb-id="${m.id}" title="Stat block" aria-label="Stat block for ${esc(name)}"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.2c1.8-.9 3.8-.9 5.5.4v9.6c-1.7-1.3-3.7-1.3-5.5-.4zM13.5 3.2c-1.8-.9-3.8-.9-5.5.4v9.6c1.7-1.3 3.7-1.3 5.5-.4z"/></svg></button>${esc(name)} <span class="muted">× ${n} waiting</span></span>
                 <span class="w-stats muted">AC ${m.ac ?? '–'} · HP ${m.hp_max} · Init ${m.init_mod >= 0 ? '+' : ''}${m.init_mod}</span>
                 <span class="w-actions">
                     <select class="qty" data-group="${esc(name)}" aria-label="How many ${esc(name)}">${opts}</select>
@@ -474,6 +475,7 @@
         const starting = state.data?.encounter.round === 0;
         render(await api(dir > 0 ? 'next_turn' : 'prev_turn', { encounter_id: state.encounterId }));
         if (starting) setSetupHidden(true); // setup controls aren't needed once the fight begins
+        followTurn();
         loadList();
     };
     $('#btn-next').addEventListener('click', () => step(1));
@@ -727,6 +729,21 @@
     // Typing a name by hand clears any monster notes left in the form.
     $('#add-combatant').name.addEventListener('input', (e) => { e.target.form.notes.value = ''; e.target.form.ref.value = ''; });
 
+    // ---- Hide / show the encounter list (remembered in this browser) ----------
+    function setSideHidden(hide) {
+        document.body.classList.toggle('side-hidden', hide);
+        $('#btn-show-side').hidden = !hide;
+        try { localStorage.setItem('em.sideHidden', hide ? '1' : ''); } catch (_) {}
+    }
+    $('#btn-hide-side').addEventListener('click', () => setSideHidden(true));
+    $('#btn-show-side').addEventListener('click', () => setSideHidden(false));
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== '[' || e.metaKey || e.ctrlKey || e.altKey) return;
+        if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+        setSideHidden(!document.body.classList.contains('side-hidden'));
+    });
+    try { if (localStorage.getItem('em.sideHidden')) setSideHidden(true); } catch (_) {}
+
     // ---- Stat blocks: side bar, expanded row, pop-up or new tab ---------------
     // One open at a time. The view is a preference (saved in this browser), switchable from the stat block.
     const SB = { view: null, target: null, data: null, el: null, holder: null };
@@ -734,7 +751,8 @@
     const sbKey = (t) => (t.id ? 'id:' + t.id : 'ref:' + t.ref);
     const narrow = () => window.matchMedia('(max-width: 1000px)').matches;
 
-    async function openStatblock(target, view = sbPref(), data = null) {
+    async function openStatblock(target, view = sbPref(), data = null, follow = false) {
+        if (follow && view === 'tab') view = 'side'; // never open a new tab every turn
         if (view === 'tab') {
             window.open('statblock.php?' + new URLSearchParams(target), '_blank', 'noopener');
             return;
@@ -742,8 +760,19 @@
         if (view === 'row' && !document.querySelector(`#rows tr[data-id="${target.id}"]`)) view = 'pop'; // not in the table
         if (view === 'side' && narrow()) view = 'pop';
         const same = SB.target && sbKey(SB.target) === sbKey(target) && SB.view === view;
+        if (follow && SB.el && SB.view === view && view !== 'row') {
+            // Next turn: swap the contents in place, so the side bar or pop-up doesn't flicker.
+            SB.target = target;
+            markOpenRow();
+            const el = SB.el;
+            try {
+                const d = await StatBlock.load(target);
+                if (SB.el === el && sbKey(SB.target) === sbKey(target)) { SB.data = d; drawStatblock(); }
+            } catch (e) { toast(e.message); }
+            return;
+        }
         closeStatblock();
-        if (same) return; // clicking the same book again closes it
+        if (same && !follow) return; // clicking the same book again closes it
 
         const el = document.createElement('div');
         Object.assign(SB, { view, target, el, data: null });
@@ -768,6 +797,7 @@
         StatBlock.render(SB.el, SB.data, {
             view: SB.view,
             onClose: closeStatblock,
+            onSaved: (payload) => render(payload),
             onView: (v) => {
                 try { localStorage.setItem('em.sbView', v); } catch (_) {}
                 const { target, data } = SB;
@@ -805,6 +835,20 @@
         }
     }
 
+    /** A PC block mirrors the table, so HP and conditions stay current as you play. */
+    function syncPcBlock() {
+        const d = SB.data;
+        if (!d || d.origin !== 'pc' || !SB.el) return;
+        const c = state.data?.combatants.find((x) => x.id === d.id);
+        if (!c) return;
+        const next = { ...d, hp: c.hp_max, hp_now: c.hp, temp_hp: c.temp_hp, ac: c.ac, init: c.init_mod,
+            level: c.level, conditions: c.conditions, name: c.name };
+        if (JSON.stringify(next) === JSON.stringify(d)) return;
+        if (SB.el.contains(document.activeElement) && document.activeElement.matches('input')) return; // typing a link
+        SB.data = next;
+        drawStatblock();
+    }
+
     /** The table is redrawn on every change: put the expanded stat block back under its row. */
     function reattachStatRow() {
         if (SB.view !== 'row' || !SB.holder) return;
@@ -817,6 +861,19 @@
     function markOpenRow() {
         document.querySelectorAll('#rows .sb-btn.on').forEach((b) => b.classList.remove('on'));
         if (SB.target?.id) document.querySelector(`#rows tr[data-id="${SB.target.id}"] .sb-btn`)?.classList.add('on');
+    }
+
+    /** "Stat block each turn": show whoever's turn it is now. */
+    const followOn = () => { try { return localStorage.getItem('em.sbFollow') !== '0'; } catch (_) { return true; } };
+    $('#sb-follow').checked = followOn();
+    $('#sb-follow').addEventListener('change', (e) => {
+        try { localStorage.setItem('em.sbFollow', e.target.checked ? '1' : '0'); } catch (_) {}
+        if (e.target.checked) followTurn();
+    });
+    function followTurn() {
+        const enc = state.data?.encounter;
+        if (!followOn() || !enc || enc.round === 0 || !enc.active_id) return;
+        openStatblock({ id: enc.active_id }, sbPref(), null, true);
     }
 
     function closeStatblock() {

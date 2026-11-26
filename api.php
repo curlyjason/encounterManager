@@ -5,6 +5,7 @@ require __DIR__ . '/lib/db.php';
 require __DIR__ . '/lib/notion.php';
 require __DIR__ . '/lib/adb.php';
 require __DIR__ . '/lib/statblock.php';
+require __DIR__ . '/lib/spells.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -134,6 +135,13 @@ function clean_ref(mixed $ref): ?string
         return $ref;
     }
     return preg_match('~^notion:[0-9a-f-]{32,36}$~i', $ref) ? strtolower($ref) : null;
+}
+
+/** A character sheet address: http(s) only, or null. */
+function clean_link(mixed $url): ?string
+{
+    $url = trim((string) $url);
+    return $url !== '' && preg_match('~^https?://[^\s<>"]+$~i', $url) && strlen($url) <= 500 ? $url : null;
 }
 
 function encounter_payload(int $id): array
@@ -314,8 +322,8 @@ try {
             $party = campaign_party($enc['campaign']);
             $have = array_map('mb_strtolower', array_column(ordered_combatants($encId), 'name'));
             $st = $pdo->prepare(
-                "INSERT INTO combatants (encounter_id, name, kind, init_mod, ac, hp_max, hp, notes, level)
-                 VALUES (?, ?, 'pc', ?, ?, ?, ?, ?, ?)"
+                "INSERT INTO combatants (encounter_id, name, kind, init_mod, ac, hp_max, hp, notes, level, ref, link)
+                 VALUES (?, ?, 'pc', ?, ?, ?, ?, ?, ?, ?, ?)"
             );
             $added = 0;
             $missing = [];
@@ -325,7 +333,8 @@ try {
                     continue;
                 }
                 $notes = $pc['player'] !== '' ? 'Player: ' . $pc['player'] : '';
-                $st->execute([$encId, $pc['name'], $pc['init_mod'] ?? 0, $pc['ac'], $pc['hp_max'], $pc['hp_max'], $notes, $pc['level']]);
+                $st->execute([$encId, $pc['name'], $pc['init_mod'] ?? 0, $pc['ac'], $pc['hp_max'], $pc['hp_max'], $notes, $pc['level'],
+                    $pc['ref'], clean_link($pc['link'])]);
                 $added++;
                 if ($pc['hp_max'] === 0 || $pc['ac'] === null || $pc['level'] === null) {
                     $missing[] = $pc['name'];
@@ -347,7 +356,7 @@ try {
             foreach (campaign_party($enc['campaign']) as $pc) {
                 $byName[mb_strtolower($pc['name'])] = $pc;
             }
-            $st = $pdo->prepare('UPDATE combatants SET ac = ?, init_mod = ?, hp_max = ?, hp = ?, level = ? WHERE id = ?');
+            $st = $pdo->prepare('UPDATE combatants SET ac = ?, init_mod = ?, hp_max = ?, hp = ?, level = ?, ref = ?, link = ? WHERE id = ?');
             $updated = 0;
             $notFound = [];
             $missing = [];
@@ -367,7 +376,8 @@ try {
                 $max = $pc['hp_max'] > 0 ? $pc['hp_max'] : $c['hp_max'];
                 $wasFull = $c['hp_max'] === 0 || $c['hp'] >= $c['hp_max'];
                 $hp = $wasFull ? $max : min($c['hp'], $max);
-                $st->execute([$ac, $mod, $max, $hp, $pc['level'] ?? $c['level'], $c['id']]);
+                $st->execute([$ac, $mod, $max, $hp, $pc['level'] ?? $c['level'], $pc['ref'] ?? $c['ref'],
+                    clean_link($pc['link']) ?? $c['link'], $c['id']]);
                 $updated++;
                 if ($pc['hp_max'] === 0 || $pc['ac'] === null || $pc['level'] === null) {
                     $missing[] = $pc['name'];
@@ -398,7 +408,22 @@ try {
                 $st = $pdo->prepare('SELECT * FROM combatants WHERE id = ?');
                 $st->execute([(int) $in['id']]);
                 $c = $st->fetch() ?: fail('That combatant is gone', 404);
-                if (!$c['ref'] && ($guess = guess_ref($c))) {
+                if ($c['kind'] === 'pc' && !$c['ref'] && notion_configured()) {
+                    // A PC added before sheet links were kept: find them in the campaign by name.
+                    $enc = find_encounter((int) $c['encounter_id']);
+                    try {
+                        foreach ($enc['campaign'] ? campaign_party($enc['campaign']) : [] as $pc) {
+                            if (mb_strtolower($pc['name']) === mb_strtolower($c['name'])) {
+                                $c['ref'] = $pc['ref'];
+                                $c['link'] = $c['link'] ?: clean_link($pc['link']);
+                                $pdo->prepare('UPDATE combatants SET ref = ?, link = ? WHERE id = ?')->execute([$c['ref'], $c['link'], $c['id']]);
+                                break;
+                            }
+                        }
+                    } catch (NotionError) {
+                        // Notion unreachable: show the block without links.
+                    }
+                } elseif (!$c['ref'] && ($guess = guess_ref($c))) {
                     // Added before stat blocks existed: remember the match for next time.
                     $pdo->prepare('UPDATE combatants SET ref = ? WHERE id = ?')->execute([$guess, $c['id']]);
                     $c['ref'] = $guess;
@@ -406,6 +431,18 @@ try {
                 $c['cr'] = $c['cr'] === null ? null : (float) $c['cr'];
             }
             echo json_encode(statblock_data($c, clean_ref($in['ref'] ?? null)), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'spell_names':
+            // Every spell the hover boxes know, so stat blocks can mark them. Empty without the 5eADB.
+            header('Cache-Control: private, max-age=3600');
+            echo json_encode(['names' => adb_configured() ? spell_names() : []]);
+            break;
+
+        case 'spell':
+            $sp = adb_configured() ? spell_for((string) ($in['name'] ?? ''), (string) ($in['source'] ?? '')) : null;
+            $sp ?: fail('No spell called “' . ($in['name'] ?? '') . '” in the 5e Artisanal Database', 404);
+            echo json_encode($sp, JSON_UNESCAPED_UNICODE);
             break;
 
         case 'list_encounters':
@@ -452,8 +489,8 @@ try {
                 ->execute([$src['name'] . ' (copy)', $src['campaign']]);
             $newId = (int) $pdo->lastInsertId();
             $pdo->prepare(
-                'INSERT INTO combatants (encounter_id, name, kind, init_mod, ac, hp_max, hp, notes, in_combat, level, cr, ref)
-                 SELECT ?, name, kind, init_mod, ac, hp_max, hp_max, notes, in_combat, level, cr, ref FROM combatants WHERE encounter_id = ?'
+                'INSERT INTO combatants (encounter_id, name, kind, init_mod, ac, hp_max, hp, notes, in_combat, level, cr, ref, link)
+                 SELECT ?, name, kind, init_mod, ac, hp_max, hp_max, notes, in_combat, level, cr, ref, link FROM combatants WHERE encounter_id = ?'
             )->execute([$newId, $id]);
             $pdo->commit();
             echo json_encode(encounter_payload($newId));
@@ -557,6 +594,12 @@ try {
                         break;
                     case 'cr':
                         $v = parse_cr($v);
+                        break;
+                    case 'link':
+                        if (trim((string) $v) !== '' && clean_link($v) === null) {
+                            fail('The character sheet link should be a web address (https://…)');
+                        }
+                        $v = clean_link($v);
                         break;
                     default:
                         fail("Unknown field: $k");

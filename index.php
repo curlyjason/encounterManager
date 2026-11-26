@@ -18,7 +18,10 @@ require __DIR__ . '/lib/version.php';
 <body>
 <div class="layout">
     <aside class="sidebar">
-        <h1>Encounter Manager</h1>
+        <div class="side-head">
+            <h1>Encounter Manager</h1>
+            <button id="btn-hide-side" class="side-toggle" title="Hide the encounter list ([)" aria-label="Hide the encounter list">«</button>
+        </div>
         <form id="new-encounter" class="row">
             <input name="name" placeholder="New encounter name" required>
             <button type="submit">Add</button>
@@ -32,6 +35,7 @@ require __DIR__ . '/lib/version.php';
     </aside>
 
     <main id="main">
+        <button id="btn-show-side" class="side-toggle show" title="Show the encounter list ([)" aria-label="Show the encounter list" hidden>»</button>
         <div id="update-banner" class="update-banner" hidden>
             <span id="update-text"></span>
             <a href="whatsnew.php">What's new</a>
@@ -46,6 +50,8 @@ require __DIR__ . '/lib/version.php';
                 <span id="paused-badge" class="paused-badge" hidden>Paused</span>
                 <button id="btn-setup" class="setup-toggle" aria-expanded="true" aria-controls="setup">Hide setup ▴</button>
                 <div class="turn-controls">
+                    <label class="follow-turns" title="Open the stat block of whoever's turn it is when you press Next or Prev">
+                        <input type="checkbox" id="sb-follow"> Stat block each turn</label>
                     <button id="btn-stop" title="Stop combat and reset to round 0" disabled>■ Stop</button>
                     <button id="btn-pause" title="Pause combat, keeping the round and whose turn it is" disabled>❚❚ Pause</button>
                     <button id="btn-prev" title="Previous turn (Shift+←)">◀ Prev</button>

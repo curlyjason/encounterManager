@@ -239,6 +239,7 @@ function campaign_party(string $key): array
             'init_mod' => $num($p, 'init_mod'), // null = blank in Notion
             'level'    => $num($p, 'level'),
             'link'     => np_text($p, col($c, $f, 'link')),
+            'ref'      => isset($p['id']) ? 'notion:' . strtolower($p['id']) : null,
         ];
     }
     return $party;

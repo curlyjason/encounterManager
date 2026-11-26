@@ -83,6 +83,10 @@ function db(): PDO
     if (!in_array('ref', $cols, true)) {
         $pdo->exec('ALTER TABLE combatants ADD COLUMN ref TEXT NULL');
     }
+    // link = a PC's character sheet (D&D Beyond etc.), from Notion's Link column or typed in the stat block.
+    if (!in_array('link', $cols, true)) {
+        $pdo->exec('ALTER TABLE combatants ADD COLUMN link TEXT NULL');
+    }
 
     // App-wide settings (key/value).
     $pdo->exec('CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
